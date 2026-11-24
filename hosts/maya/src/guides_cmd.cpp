@@ -116,6 +116,9 @@ const char* kListAttributes[] = {"-lat", "-listAttributes"};
 const char* kRemoveAttribute[] = {"-rat", "-removeAttribute"};
 // Each guide's value of the attribute v becomes 1 - v (none: 0, so 1): Invert Frozen on "freeze".
 const char* kInvertAttribute[] = {"-iat", "-invertAttribute"};
+// Each target guide's own value of the attribute becomes 1 - it (none counts 0, so it takes 1):
+// Comb A's Ctrl+Shift on "freeze" (a guide's freeze toggled), unlike -invertAttribute's every guide.
+const char* kToggleAttribute[] = {"-tat", "-toggleAttribute"};
 const char* kRenameAttribute[] = {"-rna", "-renameAttribute"};
 const char* kResample[] = {"-rsm", "-resample"};
 // Live Resample (Groom Tools' slider): the guides resampled shown as the shape's preview, from the
@@ -359,6 +362,7 @@ MSyntax GuidesCmd::newSyntax() {
     s.addFlag(kListAttributes[0], kListAttributes[1]);
     s.addFlag(kRemoveAttribute[0], kRemoveAttribute[1], MSyntax::kString);
     s.addFlag(kInvertAttribute[0], kInvertAttribute[1], MSyntax::kString);
+    s.addFlag(kToggleAttribute[0], kToggleAttribute[1], MSyntax::kString);
     s.addFlag(kRenameAttribute[0], kRenameAttribute[1], MSyntax::kString, MSyntax::kString);
     s.addFlag(kResample[0], kResample[1], MSyntax::kLong);
     s.addFlag(kSetGroupSegments[0], kSetGroupSegments[1], MSyntax::kLong);
@@ -417,7 +421,7 @@ MStatus GuidesCmd::doIt(const MArgList& args) {
                             int(db.isFlagSet(kMirrorShapes[0])) + int(db.isFlagSet(kRootTubes[0])) +
                             int(db.isFlagSet(kSetAttribute[0])) + int(db.isFlagSet(kListAttributes[0])) +
                             int(db.isFlagSet(kRemoveAttribute[0])) + int(db.isFlagSet(kRenameAttribute[0])) +
-                            int(db.isFlagSet(kInvertAttribute[0])) +
+                            int(db.isFlagSet(kInvertAttribute[0])) + int(db.isFlagSet(kToggleAttribute[0])) +
                             int(db.isFlagSet(kResample[0])) + int(db.isFlagSet(kReshape[0])) + int(db.isFlagSet(kSetGroupSegments[0])) +
                             int(db.isFlagSet(kResetGroupSegments[0])) +
                             int(db.isFlagSet(kPreviewResample[0])) + int(db.isFlagSet(kEndPreview[0])) +
@@ -1097,6 +1101,16 @@ MStatus GuidesCmd::doIt(const MArgList& args) {
                 op.op = "invert_layer";
                 op.name = flagString(db, kInvertAttribute[0], "freeze").asChar();
                 guideOp(op);
+            } else if (db.isFlagSet(kToggleAttribute[0])) {
+                // Each target's own value flipped (a guide's freeze toggled): none counts 0, so it takes 1.
+                const std::string name = flagString(db, kToggleAttribute[0], "freeze").asChar();
+                for (const GuideId id : targets()) {
+                    const HierarchyGuide* g = h->guide(id);
+                    if (!g) return fail(kName, MString("no guide ") + std::to_string(id).c_str());
+                    float value = 0.0f;
+                    h->effectiveAttribute(*g, name, &value);
+                    h->setAttribute(id, name, 1.0f - std::clamp(value, 0.0f, 1.0f));
+                }
             } else if (db.isFlagSet(kResample[0])) {
                 GuideOp op;
                 op.op = "resample";

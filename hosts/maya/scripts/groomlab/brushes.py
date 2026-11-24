@@ -17,7 +17,7 @@ SHIPPED_ALPHAS = _shipped_dir("alphas")
 groomlab_core.set_shipped_brush_alpha_dir(SHIPPED_ALPHAS)
 
 
-BRUSH_MODES = ("comb", "slide", "smooth", "straighten", "lift", "twist", "attract", "length", "cut", "shape", "erase", "paint", "clump", "place", "draw", "clone", "part", "flow", "lengths", "roots")
+BRUSH_MODES = ("comb", "comb a", "slide", "smooth", "straighten", "lift", "twist", "attract", "length", "cut", "shape", "erase", "paint", "clump", "place", "draw", "clone", "part", "flow", "lengths", "roots")
 # What the Shape brush paints on the guides' tubes (tube guides).
 TUBE_CHANNELS = ("width", "flatness", "twist")
 BRUSH_CONTEXT = "groomLabBrushCtx1"
@@ -250,7 +250,10 @@ def brush_tool(mode="comb", radius=60, strength=1.0, level=0, group="", propagat
       the Tube brush's channel.
     - Ctrl+Shift+drag with a Shape or Trim brush (in either order) paints guides into the
       selection, every other guide frozen when it ends; a drag over no guide clears the
-      selection and unfreezes every guide (a click on none changes nothing).
+      selection and unfreezes every guide (a click on none changes nothing). comb a (the Groom
+      Tools' Comb A, beside Comb) toggles the freeze instead: a click on a guide, or a lasso over
+      guides, flips theirs; a click on nothing freezes every guide; a lasso over nothing swaps the
+      frozen and the free ones.
     """
     _check_mode(mode)
     ensure_plugin()

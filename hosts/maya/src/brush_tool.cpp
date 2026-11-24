@@ -59,6 +59,10 @@ namespace {
 
 MColor mayaColor(const std::array<float, 3>& c) { return MColor(c[0], c[1], c[2]); }
 
+// The Maya plugin's own duplicate of Comb (the palette's Comb A, not the core catalog's): it combs
+// as Comb does, and its Ctrl+Shift toggles the guides' freeze instead of painting the selection.
+constexpr const char* kCombATool = "comb a";
+
 const char* kModeFlag[] = {"-m", "-mode"};
 const char* kRadiusFlag[] = {"-r", "-radius"};
 const char* kStrengthFlag[] = {"-s", "-strength"};
@@ -1117,6 +1121,15 @@ bool BrushContext::simulateStroke(const std::vector<std::pair<short, short>>& po
         if (draw) M3dView::active3dView().refresh(false, true);
         return tool_.roots().messageCount() != said;
     }
+    if (ctrl && shift && tool_.settings.modeName() == kCombATool) {
+        // Comb A's Ctrl+Shift: the freeze toggled (a click) or lassoed (a drag), as the mouse does.
+        if (points.empty() || !host_) return false;
+        freezeLassoPress(points[0].first, points[0].second);
+        for (std::size_t i = 1; i < points.size(); ++i) freezeLassoDrag(points[i].first, points[i].second);
+        const bool changed = freezeLassoRelease();
+        if (draw) M3dView::active3dView().refresh(false, true);
+        return changed;
+    }
     if (ctrl && shift && tool_.paintsSelection()) {
         // A guide brush's Ctrl+Shift drag paints the selection, through press, drag and release as
         // the mouse does.
@@ -1284,6 +1297,15 @@ MStatus BrushContext::press(MEvent& event, MHWRender::MUIDrawManager& draw) {
         return MS::kSuccess;
     }
     const unsigned modifiers = (event.isModifierControl() ? kStrokeCtrl : 0u) | (event.isModifierShift() ? kStrokeShift : 0u);
+    if (event.mouseButton() == MEvent::kLeftMouse && (modifiers & kStrokeCtrl) && (modifiers & kStrokeShift) &&
+        findGroom() && tool_.settings.modeName() == kCombATool) {
+        // Comb A's Ctrl+Shift: the freeze toggled, not the selection painted (paintsSelection is
+        // Comb's, not Comb A's). A click on a guide, or a lasso over guides, flips theirs; a click
+        // on nothing freezes every guide; a lasso over nothing swaps the frozen and the free.
+        freezeLassoPress(x, y);
+        drawLasso(draw);
+        return MS::kSuccess;
+    }
     tool_.press(*host_, activeToolView(), x, y, penPressure(), modifiers);
     unchainUnlessStroking();
     if (tool_.settings.tool == BrushToolSettings::Tool::Roots) {
@@ -1316,6 +1338,12 @@ MStatus BrushContext::drag(MEvent& event, MHWRender::MUIDrawManager& draw) {
         draw.setColor(MColor(1.0f, 1.0f, 1.0f));
         draw.text2d(MPoint(adjustX_, adjustY_ + s.screenRadius + 12), label, MHWRender::MUIDrawManager::kCenter);
         draw.endDrawable();
+        return MS::kSuccess;
+    }
+    if (freezeLasso_) {
+        // Comb A's Ctrl+Shift drag: the lasso drawn (the release toggles what it takes in).
+        freezeLassoDrag(x, y);
+        drawLasso(draw);
         return MS::kSuccess;
     }
     tool_.drag(*host_, activeToolView(), x, y, penPressure());
@@ -1366,6 +1394,14 @@ MStatus BrushContext::release(MEvent&) {
         MToolsInfo::setDirtyFlag(*this);  // refresh the Tool Settings window
         return MS::kSuccess;
     }
+    if (freezeLasso_) {
+        // Comb A's Ctrl+Shift: the toggle applied, and the freeze drawn now, as the Select tool's
+        // release redraws.
+        freezeLasso_ = false;
+        freezeLassoRelease();
+        M3dView::active3dView().refresh(true, true);
+        return MS::kSuccess;
+    }
     if (!tool_.selectingPaint()) expectGpuCommit();  // (painting the selection commits no stroke)
     const StrokeRelease released = tool_.release(*host_, activeToolView());
     unchainUnlessStroking();
@@ -1378,6 +1414,80 @@ MStatus BrushContext::release(MEvent&) {
         M3dView::active3dView().refresh(false, true);  // as endStroke: the commit's drawing now
     }
     return MS::kSuccess;
+}
+
+// Comb A's Ctrl+Shift: the freeze toggled where the stroke goes, until its release (the press
+// starts it, the drag adds its points, the release applies). A click on a guide, or a lasso over
+// guides, flips theirs (groomLabGuides -toggleAttribute freeze); a click on nothing freezes every
+// guide (-setAttribute: none free, nothing to change, no undo step); a lasso over nothing swaps
+// the frozen and the free ones (-invertAttribute). Each its own undo step, as the Select tool's
+// solo is. The pick: the brush's guides (its level and group, not hidden), the lasso's inside, a
+// click's nearest guide, each picked guide's mirror with symmetry, as pickGuidesInView picks them
+// (select_tool.h).
+void BrushContext::freezeLassoPress(short x, short y) {
+    freezeLasso_ = true;
+    lasso_ = {{float(x), float(y)}};
+}
+
+void BrushContext::freezeLassoDrag(short x, short y) {
+    lasso_.push_back({float(x), float(y)});
+}
+
+bool BrushContext::freezeLassoRelease() {
+    const std::vector<std::array<float, 2>> points = lasso_;
+    lasso_.clear();
+    freezeLasso_ = false;
+    if (points.empty() || !shape_) return false;
+    // A click when nothing moved 3 pixels, else a lasso (pickGuides draws the line the same way).
+    float minX = points[0][0], maxX = minX, minY = points[0][1], maxY = minY;
+    for (const std::array<float, 2>& p : points) {
+        minX = std::min(minX, p[0]);
+        maxX = std::max(maxX, p[0]);
+        minY = std::min(minY, p[1]);
+        maxY = std::max(maxY, p[1]);
+    }
+    const bool click = maxX - minX < 3.0f && maxY - minY < 3.0f;
+    GuidePick pick;
+    pick.level = tool_.settings.brush.level;
+    pick.group = tool_.settings.brush.group;
+    pick.symmetry = tool_.settings.symmetryName();
+    const std::vector<GuideId> picked = pickGuidesInView(points, pick);
+    MString cmd;
+    if (!picked.empty()) {
+        cmd = "groomLabGuides -toggleAttribute freeze";  // each picked guide's freeze flipped
+    } else if (click) {
+        // A click on nothing: every guide frozen, each given 1 (every guide already at 1: nothing
+        // to change, no undo step).
+        const std::shared_ptr<const GuideHierarchy> h = shape_->evaluatedHierarchy();
+        if (!h) return false;
+        bool anyFree = false;
+        std::string ids;
+        for (const HierarchyGuide& g : h->guides()) {
+            float value = 0.0f;
+            h->effectiveAttribute(g, "freeze", &value);
+            if (value < 1.0f) anyFree = true;
+            ids += " -guide \"" + std::to_string(g.id) + "\"";
+        }
+        if (!anyFree) return false;
+        cmd = MString("groomLabGuides -setAttribute freeze -value 1") + MString(ids.c_str());
+    } else {
+        cmd = "groomLabGuides -invertAttribute freeze";  // a lasso over nothing: the frozen and the free swap
+    }
+    for (const GuideId id : picked) cmd += MString(" -guide \"") + std::to_string(id).c_str() + "\"";
+    cmd += MString(" \"") + groom_.fullPathName() + "\"";
+    MGlobal::executeCommand(cmd, false, true);
+    return true;
+}
+
+void BrushContext::drawLasso(MHWRender::MUIDrawManager& draw) const {
+    if (lasso_.size() < 2) return;
+    draw.beginDrawable();
+    draw.setColor(MColor(1.0f, 0.85f, 0.2f));  // the Select tool's lasso line
+    draw.setLineWidth(1.5f);
+    for (std::size_t i = 0; i + 1 < lasso_.size(); ++i) {
+        draw.line2d(MPoint(lasso_[i][0], lasso_[i][1]), MPoint(lasso_[i + 1][0], lasso_[i + 1][1]));
+    }
+    draw.endDrawable();
 }
 
 void BrushContext::drawAffected(MHWRender::MUIDrawManager& draw, short x, short y) {

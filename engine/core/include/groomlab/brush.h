@@ -22,6 +22,7 @@ class ScalpMirror;
 // weight falls off smoothly from 1 at the center to 0 at the radius.
 enum class BrushMode {
     Comb,       // drag guide points along the stroke; roots stay pinned, lengths kept
+    CombA,      // the Maya plugin's Comb A: combs as Comb does (its Ctrl+Shift toggles the freeze, in the plugin)
     Smooth,     // relax kinks; lengths kept
     Lift,       // turn guides toward their root normal (negative strength lays them down)
     Length,     // grow (positive strength) or cut (negative) guides touched by the brush
@@ -171,6 +172,9 @@ struct BrushSettings {
 inline BrushMode strokeMode(const BrushSettings& s) {
     return s.mode == BrushMode::Smooth && s.straighten ? BrushMode::Straighten : s.mode;
 }
+
+// Comb's modes: Comb, and the Maya plugin's Comb A (its duplicate) which combs each way Comb does.
+inline bool isComb(BrushMode mode) { return mode == BrushMode::Comb || mode == BrushMode::CombA; }
 
 // A stroke's symmetry as one thing: off, a world plane (mirrorAxis, mirrorCenter) or the scalp's
 // own topology (mirrorTopology, on `scalp`: without one it is off).

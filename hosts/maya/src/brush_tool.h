@@ -220,6 +220,13 @@ private:
     void drawAffected(MHWRender::MUIDrawManager& draw, short x, short y);
     void drawLengths(MHWRender::MUIDrawManager& draw);  // the Length Keys tool's keys
     void publishRoots();  // the root tool's overlay onto the groom (drawn with it), or none
+    // Comb A's Ctrl+Shift (brush_tool.cpp): the freeze toggled where the stroke goes, until its
+    // release — a click on a guide or a lasso over guides flips theirs, a click on nothing freezes
+    // every guide, a lasso over nothing swaps the frozen and the free ones.
+    void freezeLassoPress(short x, short y);
+    void freezeLassoDrag(short x, short y);
+    bool freezeLassoRelease();
+    void drawLasso(MHWRender::MUIDrawManager& draw) const;
 public:
     // Symmetry on: the scalp's line of symmetry (symmetrySeam) handed to the groom, which draws it
     // in red on every redraw (GroomShape::setSymmetrySeam), as Substance Painter shows it: from the
@@ -257,6 +264,10 @@ private:
     double lastRefreshMs_ = 0.0;
     std::vector<double> debugStrokeTimes_;
     std::vector<std::string> debugStrokeDraws_;
+    // Comb A's Ctrl+Shift: the freeze toggle's click or lasso so far, in view pixels (the points
+    // as they came; the release picks with them and applies), until the release.
+    bool freezeLasso_ = false;
+    std::vector<std::array<float, 2>> lasso_;
 
     // The symmetry line drawn, kept until the scalp (a new mesh each deformed frame) or the
     // symmetry changes.

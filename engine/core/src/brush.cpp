@@ -328,6 +328,7 @@ Edit brushGuide(const HierarchyGuide& g, const ScalpMesh* scalp, const BrushSett
     const bool profiled = !rootToTip.empty();
 
     switch (strokeMode(s)) {
+        case BrushMode::CombA:  // the Maya plugin's Comb A: comb's stamp
         case BrushMode::Comb: {
             if (drag.length() == 0.0f) return e;
             std::vector<Vec3f> moved;  // the points, copied once one moves
@@ -954,7 +955,7 @@ std::size_t stamp(GuideHierarchy& h, const ScalpMesh* scalp, const BrushSettings
     // Comb with Stretch (Snake Hook): the points are weighed where the brush was before this drag,
     // so what it holds goes along with it (weighed where it is now, a point the drag leaves
     // behind lets go: pulled from a guide's middle, the guide would stay behind the cursor).
-    const Vec3f at = strokeMode(s) == BrushMode::Comb && s.stretch ? center - drag : center;
+    const Vec3f at = isComb(strokeMode(s)) && s.stretch ? center - drag : center;
     const Weigher weigh{at, s.radius, weight, falloffOf(s)};
     // Collect targets first: edits below must not disturb the iteration.
     std::vector<std::pair<GuideId, float>> collected;
@@ -1362,6 +1363,7 @@ TubeProfile placementTube(const GuideHierarchy& h, const PlaceSettings& s) {
 
 BrushMode brushModeFromString(const std::string& name) {
     if (name == "comb") return BrushMode::Comb;
+    if (name == "comb a") return BrushMode::CombA;  // the Maya plugin's duplicate of Comb (not in the catalog)
     if (name == "smooth") return BrushMode::Smooth;
     if (name == "lift") return BrushMode::Lift;
     if (name == "length") return BrushMode::Length;
@@ -1379,6 +1381,7 @@ BrushMode brushModeFromString(const std::string& name) {
 const char* brushModeName(BrushMode mode) {
     switch (mode) {
         case BrushMode::Comb: return "comb";
+        case BrushMode::CombA: return "comb a";
         case BrushMode::Smooth: return "smooth";
         case BrushMode::Lift: return "lift";
         case BrushMode::Length: return "length";
@@ -1398,7 +1401,7 @@ void useShiftSmoothing(BrushSettings& settings) {
     if (settings.mode == BrushMode::ShapeTube) {
         settings.smoothTube = true;
     } else {
-        settings.stretchSmoothing = settings.mode == BrushMode::Comb && settings.stretch;  // (Comb's Stretch)
+        settings.stretchSmoothing = isComb(settings.mode) && settings.stretch;  // (Comb's Stretch)
         settings.smoothMap = settings.mode == BrushMode::Attribute;  // (painting: the map it paints)
         settings.mode = BrushMode::Smooth;
     }
@@ -1755,6 +1758,7 @@ std::size_t flowStamp(FlowSet& flow, const ScalpMesh& scalp, const BrushSettings
     };
 
     switch (strokeMode(s)) {
+        case BrushMode::CombA:  // the Maya plugin's Comb A: comb's stamp
         case BrushMode::Comb: {
             if (drag.length() == 0.0f) return 0;
             const Vec3f dragDir = drag.normalized();
@@ -2065,6 +2069,7 @@ std::size_t partStamp(PartSet& set, const ScalpMesh& scalp, const BrushSettings&
         std::vector<Vec3f> moved(n);
         std::vector<bool> move(n, false);
         switch (strokeMode(s)) {
+            case BrushMode::CombA:  // the Maya plugin's Comb A: comb's stamp
             case BrushMode::Comb: {
                 if (drag.length() == 0.0f) return 0;
                 for (std::size_t i = 0; i < n; ++i) {

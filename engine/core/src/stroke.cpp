@@ -43,6 +43,7 @@ std::string sculptRefusal(const BrushToolSettings& s) {
     if (s.tool != Tool::Brush || s.paintsScalp()) return why;
     switch (s.brush.mode) {
         case BrushMode::Comb:
+        case BrushMode::CombA:  // the Maya plugin's Comb A: combs, so a Sculpt node takes it
         case BrushMode::Smooth:
         case BrushMode::Lift:
         case BrushMode::Length:
@@ -534,7 +535,7 @@ void BrushTool::stampAt(StrokeHost& host, const ToolView& view, float x, float y
         BrushSettings b = pressed();
         // Comb with Stretch (Snake Hook): weighed where the brush was before this drag, so what it
         // holds goes along with it (as applyBrushStamp's sphere is).
-        const bool snake = b.mode == BrushMode::Comb && b.stretch && !first;
+        const bool snake = isComb(b.mode) && b.stretch && !first;
         const float wx = snake ? lastX_ : x, wy = snake ? lastY_ : y;
         const BrushReachFn reach = view.brushReach(wx, wy, std::max(settings.screenRadius, 1.0f));
         if (b.mirrorTopology) b.radius = worldRadiusAt(view, center, x, y);  // the partner stamp's sphere: the ring's

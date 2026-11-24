@@ -70,6 +70,8 @@ TEST(BrushCatalog, EveryStrokeToolModeIsListedWithItsSettings) {
     }
     EXPECT_TRUE(brushEntry("select"));
     EXPECT_TRUE(brushEntry("freeze"));
+    EXPECT_EQ(brushEntry("comb a"), nullptr) << "the Maya plugin's own duplicate of Comb: a mode without a catalog "
+                                             "entry (test_brush.cpp's CombACombsAsCombDoes)";
     // Straighten: still a mode (scripts), and what Smooth runs with its chip on.
     BrushToolSettings straighten;
     EXPECT_NO_THROW(straighten.setMode("straighten"));

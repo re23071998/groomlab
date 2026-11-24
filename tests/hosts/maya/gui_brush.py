@@ -374,6 +374,54 @@ def step_redo():
     cmds.undo()
     check("... undo again: none selected, none frozen", not gl.selected_guides(groom) and not frozen_ids())
 
+    # Comb A: combs as Comb does, and its Ctrl+Shift toggles the freeze instead of selecting: a
+    # click on a guide, or a lasso over guides, flips theirs; a click on nothing freezes every
+    # guide; a lasso over nothing swaps the frozen and the free ones (one undo step each).
+    state["groomlab"].brush_tool("comb a", radius=60, strength=1.0)
+    top, right = view.portHeight() - 40, view.portWidth() - 40
+    tips = [tuple(cmds.groomLabGuides(groom, guidePoints=g)[-3:]) for g in cmds.groomLabGuides(groom, listGuides="primary")]
+    on_screen = [p for p in tips if 40 < to_view(p)[0] < right and 40 < to_view(p)[1] < top]
+    tip_now = max(on_screen, key=lambda p: to_view(p)[1])  # the highest tip in view, as the strokes above picked theirs
+    cx, cy = to_view(tip_now)
+    cmds.groomLabBrushCtx(ctx, edit=True, debugStroke=" ".join("%d %d" % (cx - 200 + 20 * k, cy) for k in range(14)))
+    check("Comb A combs the guides (they change)", cmds.getAttr(groom + ".guideData") != data)
+    cmds.undo()
+    check("... undo: the guides back", cmds.getAttr(groom + ".guideData") == data)
+
+    def moved_guides():
+        return [g["id"] for g, h in zip(jsonlib.loads(cmds.getAttr(groom + ".guideData"))["guides"],
+                                        jsonlib.loads(data)["guides"])
+                if any(abs(a - b) > 1e-4 for a, b in zip(g.get("points", []), h.get("points", [])))]
+
+    loop = " ".join("%d %d" % (int(round(cx + 30 * math.cos(2 * math.pi * k / 16))),
+                               int(round(cy + 30 * math.sin(2 * math.pi * k / 16)))) for k in range(17))
+    cmds.groomLabBrushCtx(ctx, edit=True, debugStroke="ctrlshift " + loop)
+    lassoed = frozen_ids()
+    check("Comb A Ctrl+Shift lasso freezes the guides it takes in (%d)" % len(lassoed), lassoed)
+    check("... no guide moved", not moved_guides())
+    check("... and it selects none (the toggle, not the selection painting)", not gl.selected_guides(groom))
+    cmds.groomLabBrushCtx(ctx, edit=True, debugStroke="ctrlshift " + loop)
+    check("... again over the same lasso: the same guides unfrozen (a toggle)", not frozen_ids())
+    cmds.groomLabBrushCtx(ctx, edit=True, debugStroke="ctrlshift %d %d" % (cx, cy))
+    clicked = frozen_ids()
+    check("Comb A Ctrl+Shift click on a guide freezes it (%s)" % clicked, len(clicked) == 1 and clicked[0] in lassoed)
+    cmds.groomLabBrushCtx(ctx, edit=True, debugStroke="ctrlshift %d %d" % (cx, cy))
+    check("... again: the guide unfrozen", not frozen_ids())
+    ids = cmds.groomLabGuides(groom, listGuides="primary")
+    cmds.groomLabGuides(groom, setAttribute="freeze", value=1.0, guide=[ids[0], ids[1]])
+    check("... two guides frozen to click on nothing beside", len(frozen_ids()) == 2)
+    cmds.groomLabBrushCtx(ctx, edit=True, debugStroke="ctrlshift 5 5")
+    check("... a Ctrl+Shift click on nothing freezes every guide (%d of %d frozen)"
+          % (len(frozen_ids()), len(ids)), set(frozen_ids()) == set(ids))
+    cmds.undo()
+    check("... undo: the two frozen again", len(frozen_ids()) == 2)
+    cmds.groomLabBrushCtx(ctx, edit=True, debugStroke="ctrlshift " + " ".join("%d 5" % (5 + 10 * k) for k in range(8)))
+    check("... a Ctrl+Shift lasso over nothing swaps the frozen and the free (%d of %d frozen)"
+          % (len(frozen_ids()), len(ids)), set(frozen_ids()) == set(ids) - {ids[0], ids[1]})
+    cmds.undo()
+    check("... undo: the two frozen again", len(frozen_ids()) == 2)
+    cmds.groomLabGuides(groom, removeAttribute="freeze")  # none frozen for the tools after
+
     before = len(cmds.groomLabGuides(groom, listGuides="primary"))
     state["groomlab"].brush_tool("place", length=0.7)
     px, py = to_view((0.3, 0.3, 0.9))
@@ -1206,7 +1254,7 @@ def step_brush_pack():
     tools = palette.show()
     check("the Groom Tools have no Width, Density, Curl, Direction or Noise tiles",
           not any(t in tools.buttons for t in ("width", "density", "curl", "direction", "noise")))
-    check("the tiles have icons", all(not tools.buttons[t].icon().isNull() for t in ("attract", "twist")))
+    check("the tiles have icons", all(not tools.buttons[t].icon().isNull() for t in ("attract", "twist", "comb a")))
     check("Unfreeze All sits beside the Freeze tile", "unfreeze" in tools.buttons and not tools.buttons["unfreeze"].isCheckable())
     gestures = palette.help_tip("comb").split("<table", 1)[-1]  # a brush tile's tooltip: the gestures' list
     check("the hints name Shift's smoothing and Ctrl's opposite",

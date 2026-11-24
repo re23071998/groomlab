@@ -11,6 +11,7 @@
 #include <tuple>
 
 #include "groomlab/brush.h"
+#include "groomlab/brush_catalog.h"
 #include "groomlab/curve.h"
 #include "groomlab/guide_selection.h"
 #include "groomlab/random.h"
@@ -252,6 +253,68 @@ TEST(Brush, CombWithStretchChangesLength) {
     const auto& pushed = h.guide(id)->points;
     EXPECT_LT(pushed.size(), grown);
     EXPECT_GE(pushed.size(), 2u);
+}
+
+TEST(Brush, CombACombsAsCombDoes) {
+    // Comb A ("comb a") is the Maya plugin's duplicate of Comb (its palette's Comb A): no catalog
+    // entry (the other hosts' palettes stay as they are), its own mode named "comb a", a Sculpt
+    // node takes it as it takes Comb, and it combs as Comb does — the same stroke, the same points
+    // (Stretch too: the same points added).
+    EXPECT_EQ(brushEntry("comb a"), nullptr);
+    BrushToolSettings s;
+    EXPECT_NO_THROW(s.setMode("comb a"));
+    EXPECT_EQ(s.modeName(), "comb a");
+    EXPECT_EQ(s.brush.mode, BrushMode::CombA);
+    EXPECT_EQ(sculptRefusal(s), std::string());
+
+    for (const bool stretch : {false, true}) {
+        GuideHierarchy a, b;
+        const GroupId ga = a.addGroup("primary"), gb = b.addGroup("primary");
+        const GuideId ida = a.addGuide(ga, test::straightCurve({0, 0, 0}, {0, 1, 0}, 10));
+        const GuideId idb = b.addGuide(gb, test::straightCurve({0, 0, 0}, {0, 1, 0}, 10));
+        a.evaluate(nullptr);
+        b.evaluate(nullptr);
+        BrushSettings comb;
+        comb.mode = BrushMode::Comb;
+        comb.radius = 0.3f;
+        comb.strength = 1.0f;
+        comb.stretch = stretch;
+        BrushSettings combA = comb;
+        combA.mode = BrushMode::CombA;
+        const std::vector<Vec3f> path = {{0, 1.0f, 0}, {0.3f, 1.1f, 0}, {0.6f, 1.2f, 0}};
+        applyBrushStroke(a, nullptr, comb, path);
+        applyBrushStroke(b, nullptr, combA, path);
+        const std::vector<Vec3f>& pa = a.guide(ida)->points;
+        const std::vector<Vec3f>& pb = b.guide(idb)->points;
+        ASSERT_EQ(pa.size(), pb.size()) << (stretch ? "Stretch" : "no Stretch");
+        for (std::size_t i = 0; i < pa.size(); ++i) EXPECT_NEAR((pa[i] - pb[i]).length(), 0.0f, 1e-6f);
+    }
+}
+
+TEST(Brush, CombAMirrorsAsCombDoes) {
+    // Issue 74's symmetry on the same duplicate: each side's guides are brushed by their own side's
+    // stamp, as Comb does — the same stroke over the seam, the same points on either side.
+    Scene a, b;
+    const GuideId leftA = a.add(0.42f, 0.5f), rightA = a.add(0.58f, 0.5f);
+    const GuideId leftB = b.add(0.42f, 0.5f), rightB = b.add(0.58f, 0.5f);
+    BrushSettings comb;
+    comb.mode = BrushMode::Comb;
+    comb.radius = 0.25f;
+    comb.strength = 1.0f;
+    comb.mirrorAxis = 0;
+    comb.mirrorCenter = 0.5f;
+    BrushSettings combA = comb;
+    combA.mode = BrushMode::CombA;
+    const std::vector<Vec3f> path = {{0.45f, 0.6f, 0.5f}, {0.45f, 0.6f, 0.2f}};
+    applyBrushStroke(a.h, a.scalp.get(), comb, path);
+    applyBrushStroke(b.h, b.scalp.get(), combA, path);
+    EXPECT_GT((a.pts(leftA).back() - Vec3f(0.42f, 1.0f, 0.5f)).length(), 0.05f) << "combed";
+    for (const auto& [mine, theirs] : {std::pair{leftA, leftB}, std::pair{rightA, rightB}}) {
+        const std::vector<Vec3f>& pa = a.pts(mine);
+        const std::vector<Vec3f>& pb = b.pts(theirs);
+        ASSERT_EQ(pa.size(), pb.size());
+        for (std::size_t i = 0; i < pa.size(); ++i) EXPECT_NEAR((pa[i] - pb[i]).length(), 0.0f, 1e-6f);
+    }
 }
 
 // The Shape brush (ShapeTube): each tube section moves by the brush's weight at its guide point,

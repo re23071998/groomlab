@@ -32,6 +32,14 @@ from groomlab.ui import definitions, length_keys_box, theme, tool_tabs, widgets
 # and the settings its card shows. "select" is the lasso and "freeze" the mask; the rest are
 # brush modes.
 CATALOG = groomlab_core.brush_catalog()
+# The Maya plugin's own duplicate of Comb, right beside it (the other hosts' palettes have none of
+# it, so it is not the catalog's). It combs as Comb does; its Ctrl+Shift toggles the guides' freeze
+# instead of painting the selection (the brush context's freeze lasso, brush_tool.cpp).
+COMB_A_HINT = ("Drag guides along the stroke, roots pinned (Stretch: they get longer or shorter as you pull). "
+               "Ctrl+Shift: click a guide toggles its freeze and a drag lassos the same toggle; a click on nothing "
+               "freezes every guide, a drag over nothing swaps the frozen and the free ones.")
+_comb_entry = next(t for t in CATALOG if t["id"] == "comb")
+CATALOG.insert(CATALOG.index(_comb_entry) + 1, dict(_comb_entry, id="comb a", label="Comb A", hint=COMB_A_HINT))
 CATEGORIES = groomlab_core.brush_categories()
 SETTINGS = dict((s["id"], s) for s in groomlab_core.brush_settings())
 # (section, [(tool, label, tooltip)]) per category, in the catalog's order.
@@ -50,6 +58,9 @@ TAB_ALIASES = dict((a, t["id"]) for t in definitions.tabs() for a in t.get("alia
 # What each tool does, shown under its name while it is active (the tiles' tooltips say the same).
 HINTS = dict((t["id"], t["hint"]) for t in CATALOG)
 NAMES = dict((t["id"], t["label"]) for t in CATALOG)
+# The icons' file stems (groomLab_<icon>.svg): not always the tool's id (the Maya plugin's Comb A
+# shares Comb's icon).
+ICONS = dict((t["id"], t["icon"]) for t in CATALOG)
 GESTURES = definitions.text("gestures")
 SYMMETRY_TIP = definitions.text("symmetryTip")
 NO_TOOL = "Pick a tool, then drag over the groom in the viewport."
@@ -63,7 +74,7 @@ DEFAULT_FALLOFF = SETTINGS["falloff"]["default"]
 SMOOTHING = ("Shape", "Trim")  # the groups whose tools smooth on Shift+drag (Create's, Paint's and Guides' don't say)
 
 
-def short_hint(hint, category=""):
+def short_hint(hint, category="", tool=""):
     """A tool's line on its card, as the app's (groom_tools.cpp refreshCard): the hint's first
     clause without its asides in parentheses (cut at ". " or "; " past 24 characters), then, for
     the Shape and Trim tools, the Shift+drag smoothing they share."""
@@ -74,6 +85,8 @@ def short_hint(hint, category=""):
             short = short[:at] + "."
     if not short.endswith("."):
         short += "."
+    if tool == "comb a":  # its Ctrl+Shift toggles the freeze, not the selection (its hint says)
+        return short + " Shift+drag smooths, Ctrl+Shift toggles freeze."
     return short + (" Shift+drag smooths, Ctrl+Shift+drag selects." if category in SMOOTHING else "")
 
 
@@ -1946,7 +1959,7 @@ class ToolPalette(QtWidgets.QWidget):
         """A tile's two-tone icon as the app's; a theme whose
         ui.toolOn is "category" (Playful): the chosen tile a soft wash of its group's color."""
         t = t or theme.current()
-        button.setIcon(widgets.tool_icon(tool, t))
+        button.setIcon(widgets.tool_icon(ICONS.get(tool, tool), t))
         if t.get("ui.toolOn") == "category":
             group = next((g for g, names in widgets.ICON_GROUPS.items() if tool in names), "app")
             cat = t.hex(t.get("icons." + group, "accent"))
@@ -2720,13 +2733,13 @@ class ToolPalette(QtWidgets.QWidget):
         if tool is None:
             return
         t = theme.current()
-        self.card_icon.setPixmap(widgets.tinted_pixmap(tool, t.token("accentInk"), theme.px(18)))
+        self.card_icon.setPixmap(widgets.tinted_pixmap(ICONS.get(tool, tool), t.token("accentInk"), theme.px(18)))
         self.card_title.setText(NAMES.get(tool, tool.title()))
         # One line (the app's): the hint's first clause and the gesture every brush shares; the
         # whole hint on the tool name's hover.
         whole = HINTS.get(tool, "")
         category = next((t["category"] for t in CATALOG if t["id"] == tool), "")
-        self.card_hint.setText(short_hint(whole, category) if whole else "")
+        self.card_hint.setText(short_hint(whole, category, tool) if whole else "")
         self.card_hint.setVisible(bool(whole))
         self.card_title.setToolTip(whole)
 
