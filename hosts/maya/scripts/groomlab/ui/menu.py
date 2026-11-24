@@ -2212,14 +2212,16 @@ def open_graph_editor():
 
 def show_all(what, on):
     """GroomLab > Display (and the Groom Tools' eyes, Shift+click or right-click): every groom's hair
-    (`what` "hair": the strands alone) or guides ("guides"), shown or hidden in one undo step; said
-    in the viewport."""
+    (`what` "hair": the strands alone), guides ("guides") or frozen guides ("frozen"), shown or
+    hidden in one undo step; said in the viewport."""
     import groomlab
-    grooms = (groomlab.set_all_guides_visible if what == "guides" else groomlab.set_all_hair_visible)(on)
+    set = {"guides": groomlab.set_all_guides_visible, "frozen": groomlab.set_all_frozen_guides_visible}.get(
+        what, groomlab.set_all_hair_visible)
+    grooms = set(on)
     if cmds.about(batch=True):
         return grooms
-    messages.say("%s %s" % (
-        "every groom's guides" if what == "guides" else "every groom's hair", "shown" if on else "hidden"), warning=False)
+    messages.say("%s %s" % ({ "guides": "every groom's guides", "frozen": "every groom's frozen guides"}.get(
+        what, "every groom's hair"), "shown" if on else "hidden"), warning=False)
     return grooms
 
 

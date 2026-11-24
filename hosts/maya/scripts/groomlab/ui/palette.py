@@ -1129,8 +1129,8 @@ class ToolPalette(QtWidgets.QWidget):
         self.grooms.setMinimumContentsLength(8)
         self.grooms.activated.connect(self.groom_picked)
         top.addWidget(self.grooms, 1)
-        # The eyes: the groom's hair (the strands alone), and its guides (every guide group);
-        # Shift+click or right-click: every groom's.
+        # The eyes: the groom's hair (the strands alone), its guides (every guide group) and its
+        # frozen guides; Shift+click or right-click: every groom's (the frozen eye: Shift+click).
         self.visible = self.header_button("eye", header["visible"]["tip"], checkable=True)
         self.visible.setObjectName("hairVisible")
         self.visible.toggled.connect(self.hair_visibility)
@@ -1139,6 +1139,9 @@ class ToolPalette(QtWidgets.QWidget):
         self.guides_eye.setObjectName("guidesVisible")
         self.guides_eye.toggled.connect(self.guides_visibility)
         self.eye_menu(self.guides_eye, header["guides"].get("items", []))
+        self.frozen_eye = self.header_button("frozen", header["frozen"]["tip"], checkable=True)
+        self.frozen_eye.setObjectName("frozenVisible")
+        self.frozen_eye.toggled.connect(self.frozen_visibility)
         self.header_icons = {}
         graph = self.header_button(None, header["graph"]["tip"])
         t = theme.current()
@@ -1152,7 +1155,7 @@ class ToolPalette(QtWidgets.QWidget):
         widgets.fill_menu(self.more_menu, header["more"]["items"], definitions.binder(self.ACTIONS, self),
                           generators=self.generators())
         more.setMenu(self.more_menu)
-        self.header_buttons = [self.visible, self.guides_eye, graph, more]  # (on the rail: below)
+        self.header_buttons = [self.visible, self.guides_eye, self.frozen_eye, graph, more]  # (on the rail: below)
         top_column.addLayout(top)
         # A newer GroomLab (the startup check's): a quiet note linking to GroomLab > Help > Check for Updates.
         from groomlab.ui import updates_window
@@ -2114,15 +2117,17 @@ class ToolPalette(QtWidgets.QWidget):
 
     def fill_grooms(self, active):
         """The groom choice: every groom, the current one picked (the Graph Editor's choice too,
-        unless it is pinned). The eyes show or hide the current groom's hair and its guides."""
+        unless it is pinned). The eyes show or hide the current groom's hair, its guides and its
+        frozen guides."""
         from maya import cmds
         shapes = sorted(cmds.ls(type=groomlab.GROOM_TYPE) or [])
         rows = [(shape, self._short((cmds.listRelatives(shape, parent=True) or [shape])[0])) for shape in shapes]
-        visible = guides = None
+        visible = guides = frozen = None
         if active and cmds.objExists(active):
-            visible, guides = groomlab.hair_visible(active), groomlab.guides_visible(active)
+            visible, guides, frozen = (groomlab.hair_visible(active), groomlab.guides_visible(active),
+                                       groomlab.frozen_guides_visible(active))
         current = (cmds.ls(active) or [active])[0] if active and cmds.objExists(active) else None
-        state = (rows, current, visible, guides)
+        state = (rows, current, visible, guides, frozen)
         if state == getattr(self, "_groom_rows", None):
             return
         self._groom_rows = state
@@ -2133,7 +2138,8 @@ class ToolPalette(QtWidgets.QWidget):
         self.grooms.setCurrentIndex(self.grooms.findData(current) if current else -1)
         self.grooms.blockSignals(False)
         for button, on, glyphs in ((self.visible, visible, ("eye", "eyeOff")),
-                                   (self.guides_eye, guides, ("guides", "guidesOff"))):
+                                   (self.guides_eye, guides, ("guides", "guidesOff")),
+                                   (self.frozen_eye, frozen, ("frozen", "frozenOff"))):
             button.blockSignals(True)
             button.setEnabled(on is not None)
             button.setChecked(bool(on))
@@ -2196,6 +2202,11 @@ class ToolPalette(QtWidgets.QWidget):
         """The guides' eye: show or hide every guide group of the current groom (its displayGuides;
         Shift+click: every groom's guides)."""
         self._eye("guides", on, groomlab.set_guides_visible)
+
+    def frozen_visibility(self, on):
+        """The frozen eye: show or hide the current groom's frozen guides (its displayFrozenGuides;
+        Shift+click: every groom's frozen guides)."""
+        self._eye("frozen", on, groomlab.set_frozen_guides_visible)
 
     def apply_isolation(self):
         groom = self.groom()

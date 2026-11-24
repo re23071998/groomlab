@@ -283,6 +283,7 @@ public:
 
     // Display only
     static MObject aDisplayGuides;  // draw hierarchy guides, colored by group
+    static MObject aDisplayFrozenGuides;  // draw the frozen guides (the frozen eye): off, they draw nothing
     static MObject aDisplayTubes;   // draw guide tubes as rings
     static MObject aDisplayHair;    // draw the hair (strands, instances, cards): the Groom Tools' eye
 

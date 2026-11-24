@@ -94,7 +94,7 @@ from groomlab.groom import (  # noqa: F401
     groom_scale, inputs_summary, list_grooms, lock_groom, pin_groom, pin_new_groom, pinned_groom, rest_mesh, scalp_mesh,
     SEEN_VAR, current_groom, on_current_groom, remove_current_groom_listener, set_current_groom,
     selected_grooms, hair_visible, guides_visible, set_all_hair_visible, set_all_guides_visible, set_hair_visible,
-    set_guides_visible, toggle_all_guides,
+    set_guides_visible, toggle_all_guides, frozen_guides_visible, set_frozen_guides_visible, set_all_frozen_guides_visible,
     set_follow_scalp, set_scale_reference, set_scale_source, scale_source, set_scale_with_scalp, store_scale_references,
     set_rest_mesh, set_scalp)
 from groomlab.transfer import (transfer_groom, get_transfer_markers, set_transfer_markers,  # noqa: F401

@@ -2332,7 +2332,7 @@ void DisplayBuilder::buildGuides(const DisplayInputs& in, const DisplaySettings&
     const int smoothing = std::clamp(s.guideSmoothing, 1, 16);
     const int pointMode = s.guidePoints;
     std::uint64_t key = hashCombine(hash64(in.hierarchyVersion), (s.guides ? 1u : 0u) + (s.tubes ? 2u : 0u) + (byLayer ? 4u : 0u) +
-                                                                     32u * static_cast<unsigned>(pointMode));
+                                                                     (s.frozenGuides ? 0u : 8u) + 32u * static_cast<unsigned>(pointMode));
     key = hashCombine(key, theme.version);
     key = hashCombine(key, static_cast<std::uint64_t>(smoothing));
     key = hashChars(hashChars(hashChars(key, s.hiddenGuideGroups), s.tubeViewGroup), s.mixedView);
@@ -2458,6 +2458,10 @@ void DisplayBuilder::buildGuides(const DisplayInputs& in, const DisplaySettings&
             if (found == groupDraws.end()) continue;
             const GroupDraw& d = found->second;
             if (d.level < 0 || d.level >= kMaxDrawnGuideLevels) continue;
+            if (!s.frozenGuides && attributes) {  // the frozen eye: the guide draws nothing
+                float frozen = 0.0f;
+                if (hierarchy->effectiveAttribute(g, "freeze", &frozen) && frozen >= 0.5f) continue;
+            }
             // (Mixed view decides guide by guide; else the group's hidden, found once.)
             const int mixedAt = mixed.on() ? mixed.shows(*hierarchy, g) : -1;
             const bool guideHidden = mixedAt >= 0 ? mixedAt != 1 : d.hidden;

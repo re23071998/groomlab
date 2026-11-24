@@ -1993,7 +1993,8 @@ def overlay_check(snapshots=None):
 def eyes_check(groom, folder):
     """The Groom Tools' eyes on overlay_check's groom (green guides in brown hair): the hair's eye
     (displayHair) hides the strands alone, the guides drawing on; the guides' eye (displayGuides)
-    hides the guides alone, the strands drawing on. Neither hides the groom's transform."""
+    hides the guides alone, the strands drawing on. Neither hides the groom's transform. The frozen
+    eye (displayFrozenGuides): frozen guides (blue) hidden, the free guides as ever."""
     import groomlab
     from groomlab.ui.qt import QtGui
     transform = cmds.listRelatives(groom, parent=True, fullPath=True)[0]
@@ -2030,6 +2031,37 @@ def eyes_check(groom, folder):
     check("the guides' eye hides the guides alone (guide pixels %d -> %d, hair %d -> %d)"
           % (both[0], no_guides[0], both[1], no_guides[1]),
           no_guides[0] < 0.1 * both[0] and no_guides[1] > 0.8 * both[1])
+
+    # The frozen eye (displayFrozenGuides): every guide frozen draws in the theme's frozen blue (0.45
+    # 0.6 0.85), the eye off hides them alone, the free guides and the strands drawing on.
+    ids = cmds.groomLabGuides(groom, listGuides="primary")
+    cmds.groomLabGuides(groom, setAttribute="freeze", value=1.0, guide=ids)
+
+    def frozen_pixels(name):
+        """The capture's frozen pixels: the frozen blue the theme draws them in (dev-a's brush check:
+        60 < red < 140, 100 < green < 165, 130 < blue < 195, blue over red), Format_RGB32's bytes
+        blue, green, red."""
+        cmds.refresh(currentView=True, force=True)
+        path = os.path.join(folder, "eyes_maya_%s.png" % name)
+        cmds.playblast(frame=[1], format="image", compression="png", viewer=False, showOrnaments=False,
+                       percent=100, widthHeight=(480, 360), completeFilename=path)
+        image = QtGui.QImage(path).convertToFormat(QtGui.QImage.Format_RGB32)
+        data = bytes(image.constBits())[:image.sizeInBytes()]
+        return sum(1 for i in range(0, len(data), 4)
+                   if 60 < data[i + 2] < 140 and 100 < data[i + 1] < 165 and 130 < data[i] < 195
+                   and data[i] - data[i + 2] > 35)
+
+    frozen = frozen_pixels("frozen")
+    groomlab.set_frozen_guides_visible(groom, False)
+    hidden_frozen = frozen_pixels("frozen_hidden")
+    groomlab.set_frozen_guides_visible(groom, True)
+    back = frozen_pixels("frozen_again")
+    say("frozen eye: %d frozen pixels, %d hidden, %d again" % (frozen, hidden_frozen, back))
+    check("the frozen guides draw in the frozen color (%d pixels)" % frozen, frozen > 200)
+    check("... the frozen eye hides them alone (%d pixels, the strands still drawn)" % hidden_frozen,
+          hidden_frozen < max(frozen // 3, 10))
+    check("... the eye on again draws them (%d pixels)" % back, back > frozen // 2)
+    cmds.groomLabGuides(groom, removeAttribute="freeze")
 
 
 CLUMP_CENTERS_GRAPH = {

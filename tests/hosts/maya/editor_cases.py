@@ -4468,12 +4468,25 @@ class DockableWindowsTest(unittest.TestCase):
             self.assertTrue(cmds.getAttr(self.groom + ".displayGuides"))
             window.fill_grooms(groomlab.active_groom())  # (the tick's: the eye follows)
             self.assertTrue(window.guides_eye.isChecked())
+            # The frozen eye: the guides carrying the freeze mask (displayFrozenGuides), one undo
+            # step; the guides' own eye leaves it be.
+            self.assertTrue(window.frozen_eye.isChecked())
+            window.frozen_eye.setChecked(False)
+            self.assertFalse(cmds.getAttr(self.groom + ".displayFrozenGuides"))
+            self.assertTrue(cmds.getAttr(self.groom + ".displayGuides"))
+            self.assertEqual(window.frozen_eye.glyph, "frozenOff")
+            cmds.undo()
+            self.assertTrue(cmds.getAttr(self.groom + ".displayFrozenGuides"))
+            window.fill_grooms(groomlab.active_groom())
+            self.assertTrue(window.frozen_eye.isChecked())
             # Shift+click (or the right-click menu): every groom in the scene.
             other = groomlab.create_groom(cmds.polySphere(name="otherHead")[0], name="otherGroom")
             window._every_groom = lambda: True
             try:
                 window.guides_eye.setChecked(False)
                 self.assertEqual([cmds.getAttr(g + ".displayGuides") for g in (self.groom, other)], [False, False])
+                window.frozen_eye.setChecked(False)
+                self.assertEqual([cmds.getAttr(g + ".displayFrozenGuides") for g in (self.groom, other)], [False, False])
                 window.visible.setChecked(False)
                 self.assertEqual([groomlab.hair_visible(g) for g in (self.groom, other)], [False, False])
                 self.assertEqual([cmds.getAttr(g + ".displayGuides") for g in (self.groom, other)], [False, False])

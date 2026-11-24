@@ -436,6 +436,36 @@ TEST(Display, MovingGuidesDrawOverTheGroomedOnesDimmed) {
     EXPECT_EQ(hidden.update(in, off).item(DisplayItemId::Guides).geometry->vertexCount(), groomed.vertexCount());
 }
 
+TEST(Display, TheFrozenEyeHidesTheFrozenGuides) {
+    // The frozen guides' eye (DisplaySettings::frozenGuides): off, the guides carrying the freeze
+    // mask draw nothing — their curves, their dots, their tube surfaces — the free ones as ever.
+    const Scenario s = scenarios()[0];  // (a copy: scenarios() makes a new list)
+
+    // Everything frozen: the eye on draws them all, off draws no guide (no curve, no dot).
+    auto frozen = std::make_shared<GuideHierarchy>(*fixture().view.hierarchy);
+    for (const HierarchyGuide& g : frozen->guides()) frozen->setAttribute(g.id, "freeze", 1.0f);
+    DisplayInputs in = inputsFor(s);
+    in.hierarchy = frozen;
+    DisplayBuilder shown;
+    const DisplayGeometry all = *shown.update(in, s.settings).item(DisplayItemId::Guides).geometry;
+    EXPECT_GT(all.vertexCount(), 0u);
+    DisplaySettings off = s.settings;
+    off.frozenGuides = false;
+    DisplayBuilder hidden;
+    EXPECT_EQ(hidden.update(in, off).item(DisplayItemId::Guides).geometry->vertexCount(), 0u);
+    EXPECT_TRUE(hidden.frame().dots.points.empty());
+
+    // Nothing frozen (the fixture's own freeze taken off): the eye off draws exactly what it on drew.
+    auto unfrozen = std::make_shared<GuideHierarchy>(*fixture().view.hierarchy);
+    unfrozen->removeAttribute("freeze");
+    DisplayInputs free = inputsFor(s);
+    free.hierarchy = unfrozen;
+    DisplayBuilder plain;
+    const DisplayGeometry allFree = *plain.update(free, s.settings).item(DisplayItemId::Guides).geometry;
+    DisplayBuilder hiddenFree;
+    EXPECT_EQ(hiddenFree.update(free, off).item(DisplayItemId::Guides).geometry->vertexCount(), allFree.vertexCount());
+}
+
 TEST(Display, TheTubeBrushsTubesShowAsWiresAndShadedSurfaces) {
     // DisplaySettings::tubeWires and tubeShaded (every host's Tube brush, as Maya's draw override
     // shows them): the guides the brush can shape as wires (the selected ones apart) and/or shaded

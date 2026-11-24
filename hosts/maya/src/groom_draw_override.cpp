@@ -740,6 +740,7 @@ DisplaySettings GroomSubSceneOverride::readSettings() {
     s.instances = displayFlag(GroomShape::aDisplayInstances);
     s.hair = displayFlag(GroomShape::aDisplayHair);  // (the eye: the guides draw either way)
     s.guides = displayFlag(GroomShape::aDisplayGuides);
+    s.frozenGuides = displayFlag(GroomShape::aDisplayFrozenGuides);  // (the frozen eye: the guides draw either way)
     s.tubes = displayFlag(GroomShape::aDisplayTubes);
     s.guideWidth = floatPlug(GroomShape::aGuideWidth);
     s.guideColorMode = MPlug(object_, GroomShape::aGuideColorMode).asShort();

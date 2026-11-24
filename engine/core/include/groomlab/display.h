@@ -494,6 +494,10 @@ struct DisplaySettings {
     bool hair = true;
     // Guides (off: their part lines and flow arrows hidden with them).
     bool guides = true, tubes = false;
+    // The frozen guides shown (Maya's frozen eye): off, the guides carrying the freeze mask
+    // (inherited too) are not drawn — their curves, their dots and their tube surfaces. A viewport
+    // toggle: renders and exports never read it.
+    bool frozenGuides = true;
     // The Tube brush's tubes (every host's, as Maya's draw override shows them): every guide the
     // brush can shape (activeTubeGuides) as a wire (tubeWires; the selected ones apart, warm) and/or
     // a shaded surface a little inside it (tubeShaded), each in its root tube's color with
