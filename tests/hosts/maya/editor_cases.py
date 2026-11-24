@@ -4459,23 +4459,24 @@ class DockableWindowsTest(unittest.TestCase):
             self.assertTrue(cmds.getAttr(self.groom + ".displayGuides"))
             window.visible.setChecked(True)
             self.assertTrue(cmds.getAttr(self.groom + ".displayHair"))
-            # The guides' eye: every guide group of the groom (displayGuides), one undo step.
+            # The guides' eye: every guide group of the groom (displayGuides); viewport displays
+            # write no undo step.
             self.assertTrue(window.guides_eye.isChecked())
             window.guides_eye.setChecked(False)
             self.assertFalse(cmds.getAttr(self.groom + ".displayGuides"))
             self.assertEqual(window.guides_eye.glyph, "guidesOff")
-            cmds.undo()
+            window.guides_eye.setChecked(True)
             self.assertTrue(cmds.getAttr(self.groom + ".displayGuides"))
             window.fill_grooms(groomlab.active_groom())  # (the tick's: the eye follows)
             self.assertTrue(window.guides_eye.isChecked())
-            # The frozen eye: the guides carrying the freeze mask (displayFrozenGuides), one undo
-            # step; the guides' own eye leaves it be.
+            # The frozen eye: the guides carrying the freeze mask (displayFrozenGuides); no undo
+            # step either; the guides' own eye leaves it be.
             self.assertTrue(window.frozen_eye.isChecked())
             window.frozen_eye.setChecked(False)
             self.assertFalse(cmds.getAttr(self.groom + ".displayFrozenGuides"))
             self.assertTrue(cmds.getAttr(self.groom + ".displayGuides"))
             self.assertEqual(window.frozen_eye.glyph, "frozenOff")
-            cmds.undo()
+            window.frozen_eye.setChecked(True)
             self.assertTrue(cmds.getAttr(self.groom + ".displayFrozenGuides"))
             window.fill_grooms(groomlab.active_groom())
             self.assertTrue(window.frozen_eye.isChecked())

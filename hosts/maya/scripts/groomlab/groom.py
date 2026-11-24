@@ -555,8 +555,8 @@ def list_grooms():
 
 # ---------------------------------------------------------------------------
 # Showing and hiding in the viewport: the hair (displayHair), the guides (displayGuides) and the
-# frozen guides (displayFrozenGuides), one or every groom. Viewport toggles: renders and exports
-# draw the hair whatever they say.
+# frozen guides (displayFrozenGuides), one or every groom. Viewport toggles, not edits: nothing
+# here takes an undo step (renders and exports draw the hair whatever they say).
 
 
 def hair_visible(groom):
@@ -566,8 +566,9 @@ def hair_visible(groom):
 
 
 def set_hair_visible(groom, on):
-    """Show or hide the groom's hair in the viewport (displayHair; its guides stay), one undo step."""
-    cmds.setAttr(groom + ".displayHair", bool(on))
+    """Show or hide the groom's hair in the viewport (displayHair; its guides stay), no undo step."""
+    with no_undo():
+        cmds.setAttr(groom + ".displayHair", bool(on))
 
 
 def guides_visible(groom):
@@ -577,35 +578,34 @@ def guides_visible(groom):
 
 
 def set_guides_visible(groom, on):
-    """Show or hide every guide group of the groom (displayGuides), one undo step."""
-    cmds.setAttr(groom + ".displayGuides", bool(on))
+    """Show or hide every guide group of the groom (displayGuides), no undo step."""
+    with no_undo():
+        cmds.setAttr(groom + ".displayGuides", bool(on))
 
 
 def set_all_hair_visible(on):
     """Show or hide every groom's hair in the viewport (GroomLab > Display; Shift+click the Groom
-    Tools' eye), one undo step. Returns the grooms."""
+    Tools' eye), no undo step. Returns the grooms."""
     grooms = list_grooms()
-    with undo_chunk("%s all hair" % ("show" if on else "hide")):
-        for groom in grooms:
-            try:
-                if hair_visible(groom) != bool(on):
-                    set_hair_visible(groom, on)
-            except RuntimeError:  # locked, keyed or driven: left as it is
-                pass
+    for groom in grooms:
+        try:
+            if hair_visible(groom) != bool(on):
+                set_hair_visible(groom, on)
+        except RuntimeError:  # locked, keyed or driven: left as it is
+            pass
     return grooms
 
 
 def set_all_guides_visible(on):
     """Show or hide every groom's guides (GroomLab > Display; Shift+click the Groom Tools' guides
-    eye), one undo step. Returns the grooms."""
+    eye), no undo step. Returns the grooms."""
     grooms = list_grooms()
-    with undo_chunk("%s all guides" % ("show" if on else "hide")):
-        for groom in grooms:
-            try:
-                if guides_visible(groom) != bool(on):
-                    set_guides_visible(groom, on)
-            except RuntimeError:  # locked, keyed or driven: left as it is
-                pass
+    for groom in grooms:
+        try:
+            if guides_visible(groom) != bool(on):
+                set_guides_visible(groom, on)
+        except RuntimeError:  # locked, keyed or driven: left as it is
+            pass
     return grooms
 
 
@@ -625,21 +625,21 @@ def frozen_guides_visible(groom):
 
 def set_frozen_guides_visible(groom, on):
     """Show or hide the groom's frozen guides in the viewport (displayFrozenGuides: the guides
-    carrying the freeze mask draw nothing, their curves, dots and tube surfaces), one undo step."""
-    cmds.setAttr(groom + ".displayFrozenGuides", bool(on))
+    carrying the freeze mask draw nothing, their curves, dots and tube surfaces), no undo step."""
+    with no_undo():
+        cmds.setAttr(groom + ".displayFrozenGuides", bool(on))
 
 
 def set_all_frozen_guides_visible(on):
-    """Show or hide every groom's frozen guides (Shift+click the Groom Tools' frozen eye), one undo
+    """Show or hide every groom's frozen guides (Shift+click the Groom Tools' frozen eye), no undo
     step. Returns the grooms."""
     grooms = list_grooms()
-    with undo_chunk("%s all frozen guides" % ("show" if on else "hide")):
-        for groom in grooms:
-            try:
-                if frozen_guides_visible(groom) != bool(on):
-                    set_frozen_guides_visible(groom, on)
-            except RuntimeError:  # locked, keyed or driven: left as it is
-                pass
+    for groom in grooms:
+        try:
+            if frozen_guides_visible(groom) != bool(on):
+                set_frozen_guides_visible(groom, on)
+        except RuntimeError:  # locked, keyed or driven: left as it is
+            pass
     return grooms
 
 

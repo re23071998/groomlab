@@ -261,37 +261,38 @@ class GroomingTest(unittest.TestCase):
     def test_show_and_hide_the_hair_and_the_guides(self):
         # The Groom Tools' eyes and GroomLab > Display: one groom or every groom, its hair (displayHair:
         # the strands alone, the transform and the guides left) or its guides (displayGuides, every
-        # guide group: the hair left), each one undo step.
+        # guide group: the hair left). Viewport displays, not edits: the eyes write no undo step.
         from groomlab.ui import menu
         other = groomlab.create_groom(cmds.polySphere(name="otherHead")[0], name="other")
         both = (self.groom, other)
         transform = cmds.listRelatives(self.groom, parent=True, fullPath=True)[0]
         self.assertTrue(groomlab.hair_visible(self.groom))
         shown = cmds.getAttr(self.groom + ".outStrandCount")
+        cmds.setAttr(other + ".displayHair", False)  # (the edit an undo must reach past the eye)
         groomlab.set_hair_visible(self.groom, False)
-        self.assertEqual([groomlab.hair_visible(g) for g in both], [False, True])
+        self.assertEqual([groomlab.hair_visible(g) for g in both], [False, False])
         self.assertTrue(cmds.getAttr(transform + ".visibility"))  # the groom node stays: its guides draw
         self.assertTrue(groomlab.guides_visible(self.groom))
         # Hidden, the strands are kept as they were, not evaluated again (the guides are).
         self.assertEqual(cmds.getAttr(self.groom + ".outStrandCount"), shown)
-        cmds.undo()
-        self.assertTrue(groomlab.hair_visible(self.groom))
+        cmds.undo()  # the eye writes no undo step: the undo reaches other's displayHair
+        self.assertEqual([groomlab.hair_visible(g) for g in both], [False, True])
+        groomlab.set_hair_visible(self.groom, True)
+        cmds.setAttr(other + ".displayGuides", False)
         groomlab.set_guides_visible(self.groom, False)
+        self.assertEqual([groomlab.guides_visible(g) for g in both], [False, False])
+        cmds.undo()  # (no step either: the marker is what undoes)
         self.assertEqual([groomlab.guides_visible(g) for g in both], [False, True])
-        cmds.undo()
-        self.assertTrue(groomlab.guides_visible(self.groom))
+        groomlab.set_guides_visible(self.groom, True)
         menu.ACTIONS["display.hideAllGuides"]()
         self.assertEqual([cmds.getAttr(g + ".displayGuides") for g in both], [False, False])
-        cmds.undo()  # one step
-        self.assertEqual([groomlab.guides_visible(g) for g in both], [True, True])
+        self.assertTrue(groomlab.toggle_all_guides())  # none shown: all shown
         self.assertFalse(groomlab.toggle_all_guides())  # any shown: all hidden
         self.assertTrue(groomlab.toggle_all_guides())
         self.assertEqual([groomlab.hair_visible(g) for g in both], [True, True])  # the guides' eye leaves the hair
         menu.ACTIONS["display.hideAllHair"]()
         self.assertEqual([groomlab.hair_visible(g) for g in both], [False, False])
         self.assertEqual([groomlab.guides_visible(g) for g in both], [True, True])
-        cmds.undo()  # one step
-        self.assertEqual([groomlab.hair_visible(g) for g in both], [True, True])
         menu.ACTIONS["display.hideAllHair"]()
         menu.ACTIONS["display.showAllHair"]()
         self.assertEqual([groomlab.hair_visible(g) for g in both], [True, True])

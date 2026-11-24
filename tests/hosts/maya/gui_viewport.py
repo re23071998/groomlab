@@ -1994,7 +1994,8 @@ def eyes_check(groom, folder):
     """The Groom Tools' eyes on overlay_check's groom (green guides in brown hair): the hair's eye
     (displayHair) hides the strands alone, the guides drawing on; the guides' eye (displayGuides)
     hides the guides alone, the strands drawing on. Neither hides the groom's transform. The frozen
-    eye (displayFrozenGuides): frozen guides (blue) hidden, the free guides as ever."""
+    eye (displayFrozenGuides): frozen guides (blue) hidden, the free guides as ever. Viewport
+    displays, not edits: the eyes write no undo step (undo reaches past them)."""
     import groomlab
     from groomlab.ui.qt import QtGui
     transform = cmds.listRelatives(groom, parent=True, fullPath=True)[0]
@@ -2061,7 +2062,25 @@ def eyes_check(groom, folder):
     check("... the frozen eye hides them alone (%d pixels, the strands still drawn)" % hidden_frozen,
           hidden_frozen < max(frozen // 3, 10))
     check("... the eye on again draws them (%d pixels)" % back, back > frozen // 2)
-    cmds.groomLabGuides(groom, removeAttribute="freeze")
+
+    # The eyes' toggles write no undo step: undo from after them reaches the freeze (the last edit),
+    # none of the toggles.
+    def frozen_ids():
+        return [str(g["id"]) for g in json.loads(cmds.getAttr(groom + ".guideData"))["guides"]
+                if g.get("attributes", {}).get("freeze", 0.0) > 0.5]
+
+    cmds.groomLabGuides(groom, setAttribute="freeze", value=0.0, guide=ids)
+    cmds.groomLabGuides(groom, setAttribute="freeze", value=1.0, guide=ids)  # (the edit undo reaches)
+    groomlab.set_frozen_guides_visible(groom, False)
+    groomlab.set_hair_visible(groom, False)
+    groomlab.set_guides_visible(groom, False)
+    cmds.undo()
+    eyes = (groomlab.frozen_guides_visible(groom), groomlab.hair_visible(groom), groomlab.guides_visible(groom))
+    check("... the eyes' toggles write no undo step (undo reaches the freeze, the eyes %s)" % (eyes,),
+          not frozen_ids() and eyes == (False, False, False))
+    groomlab.set_frozen_guides_visible(groom, True)
+    groomlab.set_hair_visible(groom, True)
+    groomlab.set_guides_visible(groom, True)
 
 
 CLUMP_CENTERS_GRAPH = {
